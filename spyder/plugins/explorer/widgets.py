@@ -23,10 +23,10 @@ import mimetypes as mime
 
 # Third party imports
 from qtpy.compat import getsavefilename, getexistingdirectory
-from qtpy.QtCore import (QDir, QFileInfo, QMimeData, QSize,
+from qtpy.QtCore import (QDir, QFileInfo, QMimeData, QModelIndex, QSize,
                          QSortFilterProxyModel, Qt, QTimer, QUrl,
                          Signal, Slot)
-from qtpy.QtGui import QDrag
+from qtpy.QtGui import QColor, QDrag
 from qtpy.QtWidgets import (QFileSystemModel, QHBoxLayout, QFileIconProvider,
                             QInputDialog, QLabel, QLineEdit, QMenu,
                             QMessageBox, QToolButton, QTreeView, QVBoxLayout,
@@ -181,6 +181,33 @@ class IconProvider(QFileIconProvider):
                 return icon
 
 
+class ColorModel(QFileSystemModel):
+    def __init__(self, *args, **kwargs):
+        super(ColorModel, self).__init__(*args, **kwargs)
+        self.vcs_state = None
+        self.color_array = [QColor("#ff0000"), QColor("#555555"),
+                            QColor("#0000ff"), QColor("#ffffff")]
+        self.root_path = None
+
+    def setVCSState(self, state, root_path):
+        self.vcs_state = state
+        self.dataChanged.emit(QModelIndex(), QModelIndex())
+        self.root_path = root_path
+
+    def relativePath(self, index):
+        return str(re.sub('^' + self.root_path + '/', '',
+                          self.filePath(index)))
+
+    def data(self, index, role=Qt.DisplayRole):
+        if self.vcs_state and role == Qt.TextColorRole:
+            filename = self.relativePath(index)
+            if filename in self.vcs_state and self.vcs_state[filename] <= 3:
+                return self.color_array[self.vcs_state[filename]]
+            else:
+                return QColor("#ffffff")
+        return super(ColorModel, self).data(index, role)
+
+
 class DirView(QTreeView):
     """Base file/directory tree view"""
     sig_edit = Signal(str)
@@ -207,19 +234,19 @@ class DirView(QTreeView):
         self.setup_fs_model()
         self._scrollbar_positions = None
         self.setSelectionMode(self.ExtendedSelection)
-                
+
     #---- Model
     def setup_fs_model(self):
         """Setup filesystem model"""
         filters = QDir.AllDirs | QDir.Files | QDir.Drives | QDir.NoDotAndDotDot
-        self.fsmodel = QFileSystemModel(self)
+        self.fsmodel = ColorModel(self)
         self.fsmodel.setFilter(filters)
         self.fsmodel.setNameFilterDisables(False)
-        
+
     def install_model(self):
         """Install filesystem model"""
         self.setModel(self.fsmodel)
-        
+
     def setup_view(self):
         """Setup view"""
         self.install_model()
@@ -230,9 +257,9 @@ class DirView(QTreeView):
         self.sortByColumn(0, Qt.AscendingOrder)
         self.fsmodel.modelReset.connect(self.reset_icon_provider)
         self.reset_icon_provider()
-        # Disable the view of .spyproject. 
+        # Disable the view of .spyproject.
         self.filter_directories()
-        
+
     def set_name_filters(self, name_filters):
         """Set name filters"""
         self.name_filters = name_filters
@@ -854,7 +881,7 @@ class DirView(QTreeView):
             QMessageBox.critical(self, _("Error"),
                 _("""<b>Unable to find external program.</b><br><br>%s""")
                     % to_text_string(msg))
-        
+
     #----- Settings
     def get_scrollbar_position(self):
         """Return scrollbar positions"""
@@ -1015,14 +1042,21 @@ class FilteredDirView(DirView):
         index = self.fsmodel.index(filename)
         if index.isValid() and index.model() is self.fsmodel:
             return self.proxymodel.mapFromSource(index)
-        
+
+    def set_vcs_state(self, folderPath):
+        """Color the explorer output based on commit states"""
+        status_dict = vcs.get_vcs_status(folderPath)
+        self.fsmodel.setVCSState(status_dict, folderPath)
+
     def set_folder_names(self, folder_names):
         """Set folder names"""
         assert self.root_path is not None
         path_list = [osp.join(self.root_path, dirname)
                      for dirname in folder_names]
         self.proxymodel.setup_filter(self.root_path, path_list)
-        
+        # Enable vcs status higlighting
+        self.set_vcs_state(path_list[0])
+
     def get_filename(self, index):
         """Return filename from index"""
         if index:
