@@ -33,6 +33,7 @@ from qtpy.QtWidgets import (QFileSystemModel, QHBoxLayout, QFileIconProvider,
                             QWidget)
 # Local imports
 from spyder.config.base import _, get_home_dir
+from spyder.config.main import CONF
 from spyder.py3compat import (str_lower, to_binary_string,
                               to_text_string)
 from spyder.utils import icon_manager as ima
@@ -184,10 +185,13 @@ class IconProvider(QFileIconProvider):
 class ColorModel(QFileSystemModel):
     """FileSystemModel providing a color-code for different commit-status."""
     def __init__(self, *args, **kwargs):
-        self.vcs_state = None
-        self.color_array = [QColor("#ff0000"), QColor("#555555"),
-                            QColor("#0099ff"), QColor("#00ff00"),
-                            QColor("#ffffff")]
+        self.vcs_state = []
+        normalstyle = CONF.get('appearance', 'selected') + '/normal'
+        self.color_array = [QColor(CONF.get('vcs', 'color/untracked')),
+                            QColor(CONF.get('vcs', 'color/ignored')),
+                            QColor(CONF.get('vcs', 'color/modified')),
+                            QColor(CONF.get('vcs', 'color/added')),
+                            QColor(CONF.get('appearance', normalstyle)[0])]
         self.root_path = ''
         super(ColorModel, self).__init__(*args, **kwargs)
 
