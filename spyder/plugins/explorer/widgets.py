@@ -196,6 +196,8 @@ class IconProvider(QFileIconProvider):
 class ColorModel(QFileSystemModel):
     """FileSystemModel providing a color-code for different commit-status."""
     def __init__(self, *args, **kwargs):
+        self.is_vcs_path = False
+        self.vcs_root = ''
         self.vcs_state = []
         normalstyle = CONF.get('appearance', 'selected') + '/normal'
         self.color_array = [QColor(CONF.get('vcs', 'color/untracked')),
@@ -203,23 +205,26 @@ class ColorModel(QFileSystemModel):
                             QColor(CONF.get('vcs', 'color/modified')),
                             QColor(CONF.get('vcs', 'color/added')),
                             QColor(CONF.get('appearance', normalstyle)[0])]
-        self.root_path = ''
         super(ColorModel, self).__init__(*args, **kwargs)
 
-    def setVCSState(self, root_path):
+    def setVCSState(self, file_path):
         """Set the vcs state dictionary."""
-        self.root_path = root_path
-        self.vcs_state = vcs.get_vcs_status(self.root_path)
+        self.vcs_state = vcs.get_vcs_status(file_path)
+        self.is_vcs_path = vcs.is_vcs_repository(file_path)
+        if self.is_vcs_path:            
+            self.vcs_root = vcs.get_vcs_root(file_path)
+        else:
+            self.vcs_root = ''
         self.dataChanged.emit(QModelIndex(), QModelIndex())
 
     def relativePath(self, index):
         """Return the project-relative path of a file with a given index."""
-        return str(re.sub('^' + self.root_path + '/', '',
-                          self.filePath(index)))
+        return str(re.sub('^' + self.vcs_root + '/',
+                          '', self.filePath(index)))
 
     def data(self, index, role):
         """Set the colors of the elements in the Treeview."""
-        if self.vcs_state and role == Qt.TextColorRole:
+        if self.is_vcs_path and self.vcs_state and role == Qt.TextColorRole:
             filename = self.relativePath(index)
             if filename in self.vcs_state and self.vcs_state[filename] <= 3:
                 return self.color_array[self.vcs_state[filename]]
@@ -254,7 +259,7 @@ class DirView(QTreeView):
         self.setup_fs_model()
         self._scrollbar_positions = None
         self.setSelectionMode(self.ExtendedSelection)
-
+                
     #---- Model
     def setup_fs_model(self):
         """Setup filesystem model"""
@@ -262,11 +267,11 @@ class DirView(QTreeView):
         self.fsmodel = ColorModel(self)
         self.fsmodel.setFilter(filters)
         self.fsmodel.setNameFilterDisables(False)
-
+        
     def install_model(self):
         """Install filesystem model"""
         self.setModel(self.fsmodel)
-
+        
     def setup_view(self):
         """Setup view"""
         self.install_model()
@@ -279,7 +284,7 @@ class DirView(QTreeView):
         self.reset_icon_provider()
         # Disable the view of .spyproject.
         self.filter_directories()
-
+        
     def set_name_filters(self, name_filters):
         """Set name filters"""
         self.name_filters = name_filters
@@ -901,7 +906,7 @@ class DirView(QTreeView):
             QMessageBox.critical(self, _("Error"),
                 _("""<b>Unable to find external program.</b><br><br>%s""")
                     % to_text_string(msg))
-
+        
     #----- Settings
     def get_scrollbar_position(self):
         """Return scrollbar positions"""

@@ -272,7 +272,6 @@ DEFAULTS = [
               }),
             ('vcs',
              {
-              'use_vcs_higlighting': True,
               'color/untracked': "#ff0000",
               'color/ignored': "#555555",
               'color/modified': "#0099ff",
