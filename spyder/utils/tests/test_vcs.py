@@ -17,8 +17,9 @@ import sys
 import pytest
 
 # Local imports
+from spyder.utils.programs import run_program
 from spyder.utils.vcs import (ActionToolNotFound, get_git_revision,
-                              get_vcs_root, run_vcs_tool)
+                              get_vcs_root, get_vcs_status, run_vcs_tool)
 
 
 @pytest.mark.skipif(os.environ.get('CI', None) is None,
@@ -34,8 +35,8 @@ def test_vcs_tool():
 
 def test_vcs_root(tmpdir):
     directory = tmpdir.mkdir('foo')
-    assert get_vcs_root(str(directory)) == None
-    assert get_vcs_root(osp.dirname(__file__)) != None
+    assert get_vcs_root(str(directory)) is None
+    assert get_vcs_root(osp.dirname(__file__)) is not None
 
 
 @pytest.mark.skipif(os.name == 'nt' and os.environ.get('AZURE') is not None,
@@ -44,6 +45,20 @@ def test_git_revision():
     root = get_vcs_root(osp.dirname(__file__))
     assert get_git_revision(osp.dirname(__file__)) == (None, None)
     assert all([isinstance(x, str) for x in get_git_revision(root)])
+
+
+def test_vcs_state(tmpdir):
+    """Test if the vcs state of the directory and subdirectories is returned"""
+    test_dir = os.getcwd()
+    os.chdir(tmpdir)
+    subdir = tmpdir.mkdir('subdir')
+    proc = run_program('git', ['init'], cwd=subdir)
+    out, err = proc.communicate()
+    file = osp.join(subdir, 'test.py')
+    open(file, 'w').close()
+    assert get_vcs_status(subdir) != []
+    assert get_vcs_status(tmpdir) != []
+    os.chdir(test_dir)
 
 
 if __name__ == "__main__":
