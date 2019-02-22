@@ -48,7 +48,7 @@ def test_git_revision():
 
 
 def test_vcs_state(tmpdir):
-    """Test if the vcs state of the directory and subdirectories is returned"""
+    """Test the vcs state of a directory and subdirectories."""
     test_dir = os.getcwd()
     os.chdir(tmpdir)
     subdir = tmpdir.mkdir('subdir')
