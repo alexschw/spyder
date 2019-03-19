@@ -276,6 +276,7 @@ DEFAULTS = [
               'color/ignored': "#808080",
               'color/modified': "#0099ff",
               'color/added': "#00ff00",
+              'color/conflict': "#ff7700",
               }),
             ('explorer',
              {

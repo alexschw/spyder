@@ -1565,7 +1565,6 @@ class Editor(SpyderPluginWidget):
 
     @Slot(str, str)
     def update_vcs_status(self, _, filename):
-        logger.debug("new vcs with file: " + filename)
         if self.projects is not None:
             self.projects.explorer.treewidget.fsmodel.set_vcs_state(filename)
 
